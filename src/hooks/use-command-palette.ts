@@ -1,0 +1,13 @@
+"use client";
+
+import { create } from "zustand";
+
+type CommandPaletteState = {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+};
+
+export const useCommandPalette = create<CommandPaletteState>((set) => ({
+  open: false,
+  setOpen: (open) => set({ open })
+}));
