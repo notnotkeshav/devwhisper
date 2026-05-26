@@ -58,7 +58,8 @@ export function BoardCanvas({ boardId, initialScene }: Props) {
           exportWithDarkMode: true,
           exportBackground: true
         } as never,
-        files: null
+        files: null,
+        skipInliningFonts: true
       });
       const svgString = new XMLSerializer().serializeToString(svgEl);
       await saveBoardSnapshotAction(boardId, svgString);

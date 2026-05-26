@@ -8,12 +8,14 @@ import {
   unarchiveBoardAction,
   trashBoardAction
 } from "@/features/board/actions";
+import { requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function BoardPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireUser();
   const { id } = await params;
-  const board = await getBoard(id);
+  const board = await getBoard(id, user.id);
   if (!board) notFound();
   return (
     <>
@@ -25,10 +27,10 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
           <div className="flex gap-2">
             <ArchiveButton
               isArchived={!!board.archivedAt}
-              onArchive={() => archiveBoardAction(board.id)}
-              onUnarchive={() => unarchiveBoardAction(board.id)}
+              onArchive={archiveBoardAction.bind(null, board.id)}
+              onUnarchive={unarchiveBoardAction.bind(null, board.id)}
             />
-            <TrashButton onTrash={() => trashBoardAction(board.id)} />
+            <TrashButton onTrash={trashBoardAction.bind(null, board.id)} />
           </div>
         }
       />

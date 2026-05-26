@@ -22,9 +22,10 @@ export function extractWikiLinks(markdown: string): WikiLink[] {
   return [...links.values()];
 }
 
-export function replaceWikiLinks(markdown: string) {
+export function replaceWikiLinks(markdown: string, hrefs: Map<string, string> = new Map()) {
   return markdown.replace(wikiLinkPattern, (_, label: string, alias?: string) => {
     const slug = slugify(label);
-    return `[${alias?.trim() || label.trim()}](/kb/${slug})`;
+    const href = hrefs.get(slug) ?? `/kb/${slug}`;
+    return `[${alias?.trim() || label.trim()}](${href})`;
   });
 }

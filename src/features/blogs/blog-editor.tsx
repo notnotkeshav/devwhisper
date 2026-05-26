@@ -2,7 +2,6 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
@@ -12,6 +11,7 @@ import { TableHeader } from "@tiptap/extension-table-header";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { common, createLowlight } from "lowlight";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import Image from "@tiptap/extension-image";
 import { Markdown } from "@tiptap/markdown";
 import { useEffect, useState } from "react";
 import {
@@ -79,9 +79,8 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ codeBlock: false }),
+      StarterKit.configure({ codeBlock: false, link: { openOnClick: false } }),
       Markdown,
-      Link.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: "Start writing your blog post…" }),
       TaskList,
       TaskItem.configure({ nested: true }),
@@ -89,16 +88,18 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
       TableRow,
       TableHeader,
       TableCell,
-      CodeBlockLowlight.configure({ lowlight })
+      CodeBlockLowlight.configure({ lowlight }),
+      Image.configure({ inline: false, allowBase64: false })
     ],
-    content: initialContent,
+    content: "",
     immediatelyRender: false,
     onUpdate({ editor }) {
-      onChange(
-        (
-          editor.storage as unknown as Record<string, { getMarkdown: () => string }>
-        ).markdown.getMarkdown()
-      );
+      const manager = (
+        editor as unknown as {
+          storage: { markdown: { manager: { serialize: (json: unknown) => string } } };
+        }
+      ).storage.markdown.manager;
+      onChange(manager.serialize(editor.getJSON()));
     },
     editorProps: {
       attributes: {
@@ -107,6 +108,19 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
       }
     }
   });
+
+  useEffect(() => {
+    if (!editor || !initialContent) return;
+    const manager = (
+      editor as unknown as {
+        storage: { markdown: { manager: { parse: (s: string) => unknown } } };
+      }
+    ).storage.markdown.manager;
+    const doc = manager.parse(initialContent);
+    editor.commands.setContent(doc as never);
+    // only run on mount — initialContent changes are intentionally ignored
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
 
   useEffect(() => {
     return () => {
@@ -119,13 +133,10 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
     setBoardPickerOpen(false);
 
     if (board.previewSvg) {
-      const bytes = new TextEncoder().encode(board.previewSvg);
-      const binary = Array.from(bytes, (b) => String.fromCharCode(b)).join("");
-      const base64 = btoa(binary);
       editor
         .chain()
         .focus()
-        .insertContent(`\n![Board: ${board.title}](data:image/svg+xml;base64,${base64})\n`)
+        .setImage({ src: `/api/boards/${board.id}/preview`, alt: `Board: ${board.title}` })
         .run();
     } else {
       editor

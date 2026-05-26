@@ -8,9 +8,9 @@ import { listBoards } from "@/features/board/repository";
 export const dynamic = "force-dynamic";
 
 export default async function EditBlogPage({ params }: { params: Promise<{ slug: string }> }) {
-  await requireUser();
+  const user = await requireUser();
   const { slug } = await params;
-  const [blog, boards] = await Promise.all([getBlogBySlug(slug), listBoards()]);
+  const [blog, boards] = await Promise.all([getBlogBySlug(slug, user.id), listBoards(user.id)]);
   if (!blog) notFound();
   return (
     <>

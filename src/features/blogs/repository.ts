@@ -5,34 +5,43 @@ import { getDb } from "@/lib/db";
 import { env } from "@/lib/env";
 import { blogs } from "@/lib/db/schema";
 
-export async function listBlogs() {
+export async function listBlogs(userId: string) {
   if (!env.DATABASE_URL) return [];
   return getDb().query.blogs.findMany({
-    where: and(isNull(blogs.archivedAt), isNull(blogs.deletedAt)),
+    where: and(eq(blogs.userId, userId), isNull(blogs.archivedAt), isNull(blogs.deletedAt)),
     orderBy: desc(blogs.updatedAt),
     limit: 50
   });
 }
 
-export async function listArchivedBlogs() {
+export async function listArchivedBlogs(userId: string) {
   if (!env.DATABASE_URL) return [];
   return getDb().query.blogs.findMany({
-    where: and(isNotNull(blogs.archivedAt), isNull(blogs.deletedAt)),
+    where: and(eq(blogs.userId, userId), isNotNull(blogs.archivedAt), isNull(blogs.deletedAt)),
     orderBy: desc(blogs.updatedAt),
     limit: 50
   });
 }
 
-export async function listTrashedBlogs() {
+export async function listTrashedBlogs(userId: string) {
   if (!env.DATABASE_URL) return [];
   return getDb().query.blogs.findMany({
-    where: isNotNull(blogs.deletedAt),
+    where: and(eq(blogs.userId, userId), isNotNull(blogs.deletedAt)),
     orderBy: desc(blogs.updatedAt),
     limit: 50
   });
 }
 
-export async function getBlogBySlug(slug: string) {
+export async function getBlogBySlug(slug: string, userId: string) {
   if (!env.DATABASE_URL) return null;
-  return getDb().query.blogs.findFirst({ where: eq(blogs.slug, slug) });
+  return getDb().query.blogs.findFirst({
+    where: and(eq(blogs.slug, slug), eq(blogs.userId, userId))
+  });
+}
+
+export async function getBlogBySlugPublic(slug: string) {
+  if (!env.DATABASE_URL) return null;
+  return getDb().query.blogs.findFirst({
+    where: and(eq(blogs.slug, slug), isNull(blogs.deletedAt))
+  });
 }

@@ -6,8 +6,8 @@ import { listBoards } from "@/features/board/repository";
 export const dynamic = "force-dynamic";
 
 export default async function NewBlogPage() {
-  await requireUser();
-  const boards = await listBoards();
+  const user = await requireUser();
+  const boards = await listBoards(user.id);
   return (
     <>
       <PageHeader

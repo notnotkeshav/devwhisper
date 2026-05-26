@@ -4,10 +4,34 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { blogs } from "@/lib/db/schema";
+import { blogs, boards } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { slugify } from "@/lib/utils/slug";
 import { z } from "zod";
+
+const BOARD_EMBED_RE = /\/api\/boards\/([a-f0-9-]{36})\/preview/g;
+
+type Db = ReturnType<typeof getDb>;
+
+async function syncBoardLinks(db: Db, blogId: string, mdx: string) {
+  BOARD_EMBED_RE.lastIndex = 0;
+  const embeddedBoardIds: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = BOARD_EMBED_RE.exec(mdx)) !== null) {
+    embeddedBoardIds.push(m[1]);
+  }
+  for (const boardId of embeddedBoardIds) {
+    const board = await db.query.boards.findFirst({ where: eq(boards.id, boardId) });
+    if (!board) continue;
+    const current = board.linkedBlogIds ?? [];
+    if (!current.includes(blogId)) {
+      await db
+        .update(boards)
+        .set({ linkedBlogIds: [...current, blogId], updatedAt: new Date() })
+        .where(eq(boards.id, boardId));
+    }
+  }
+}
 
 const blogFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -31,8 +55,10 @@ export async function saveBlogAction(formData: FormData) {
     throw new Error(parsed.error.issues[0]?.message ?? "Invalid blog.");
   }
 
+  const RESERVED_SLUGS = new Set(["new", "archive", "bin", "edit"]);
   const db = getDb();
-  const slug = parsed.data.slug ? slugify(parsed.data.slug) : slugify(parsed.data.title);
+  let slug = parsed.data.slug ? slugify(parsed.data.slug) : slugify(parsed.data.title);
+  if (RESERVED_SLUGS.has(slug)) slug = `${slug}-post`;
   const existing = await db.query.blogs.findFirst({ where: eq(blogs.slug, slug) });
 
   const wordCount = parsed.data.mdx.split(/\s+/).filter(Boolean).length;
@@ -49,11 +75,17 @@ export async function saveBlogAction(formData: FormData) {
     updatedAt: new Date()
   };
 
+  let savedBlogId: string;
   if (existing) {
     await db.update(blogs).set(values).where(eq(blogs.id, existing.id));
+    savedBlogId = existing.id;
   } else {
-    await db.insert(blogs).values(values);
+    const rows = await db.insert(blogs).values(values).returning({ id: blogs.id });
+    savedBlogId = rows[0]!.id;
   }
+
+  // Update linkedBlogIds on any boards embedded in this blog
+  await syncBoardLinks(db, savedBlogId, parsed.data.mdx);
 
   revalidatePath("/blogs");
   revalidatePath(`/blogs/${slug}`);

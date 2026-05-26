@@ -5,7 +5,11 @@ import { getDb } from "@/lib/db";
 import { blogs, boards, notes, topics } from "@/lib/db/schema";
 import type { SearchResult } from "./types";
 
-export async function globalSearch(query: string, limit = 20): Promise<SearchResult[]> {
+export async function globalSearch(
+  query: string,
+  userId: string,
+  limit = 20
+): Promise<SearchResult[]> {
   if (!query.trim()) return [];
   const db = getDb();
   const safeLimit = Math.min(Math.max(limit, 1), 50);
@@ -15,25 +19,29 @@ export async function globalSearch(query: string, limit = 20): Promise<SearchRes
       left(markdown, 220) as excerpt,
       ts_rank(to_tsvector('english', title || ' ' || markdown), plainto_tsquery('english', ${query})) as score
     from ${notes}
-    where to_tsvector('english', title || ' ' || markdown) @@ plainto_tsquery('english', ${query})
+    where user_id = ${userId}
+      and to_tsvector('english', title || ' ' || markdown) @@ plainto_tsquery('english', ${query})
     union all
     select id::text, 'blog' as type, title, slug,
       left(mdx, 220) as excerpt,
       ts_rank(to_tsvector('english', title || ' ' || mdx), plainto_tsquery('english', ${query})) as score
     from ${blogs}
-    where to_tsvector('english', title || ' ' || mdx) @@ plainto_tsquery('english', ${query})
+    where user_id = ${userId}
+      and to_tsvector('english', title || ' ' || mdx) @@ plainto_tsquery('english', ${query})
     union all
     select id::text, 'topic' as type, title, slug,
       left(description, 220) as excerpt,
       similarity(title, ${query}) as score
     from ${topics}
-    where title ilike '%' || ${query} || '%' or description ilike '%' || ${query} || '%'
+    where user_id = ${userId}
+      and (title ilike '%' || ${query} || '%' or description ilike '%' || ${query} || '%')
     union all
     select id::text, 'board' as type, title, slug,
       'Architecture board' as excerpt,
       similarity(title, ${query}) as score
     from ${boards}
-    where title ilike '%' || ${query} || '%'
+    where user_id = ${userId}
+      and title ilike '%' || ${query} || '%'
     order by score desc
     limit ${safeLimit}
   `);

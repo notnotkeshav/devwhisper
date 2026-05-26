@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 
 interface ArchiveButtonProps {
   isArchived: boolean;
-  onArchive: () => Promise<void>;
-  onUnarchive: () => Promise<void>;
+  onArchive?: () => Promise<void>;
+  onUnarchive?: () => Promise<void>;
 }
 
 export function ArchiveButton({ isArchived, onArchive, onUnarchive }: ArchiveButtonProps) {
@@ -17,7 +17,10 @@ export function ArchiveButton({ isArchived, onArchive, onUnarchive }: ArchiveBut
       variant="secondary"
       size="sm"
       disabled={pending}
-      onClick={() => startTransition(isArchived ? onUnarchive : onArchive)}
+      onClick={() => {
+        if (isArchived && onUnarchive) startTransition(onUnarchive);
+        if (!isArchived && onArchive) startTransition(onArchive);
+      }}
     >
       {isArchived ? (
         <>

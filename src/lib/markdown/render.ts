@@ -9,7 +9,7 @@ import rehypeSanitize from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
 import { replaceWikiLinks } from "./wiki-links";
 
-export async function renderMarkdown(markdown: string) {
+export async function renderMarkdown(markdown: string, hrefs: Map<string, string> = new Map()) {
   const file = await unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -19,7 +19,7 @@ export async function renderMarkdown(markdown: string) {
     .use(rehypeHighlight)
     .use(rehypeSanitize)
     .use(rehypeStringify)
-    .process(replaceWikiLinks(markdown));
+    .process(replaceWikiLinks(markdown, hrefs));
 
   return String(file);
 }

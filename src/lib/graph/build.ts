@@ -14,6 +14,8 @@ export type KnowledgeGraphEdge = {
   kind: string;
 };
 
+const BOARD_EMBED_RE = /\/api\/boards\/([a-f0-9-]{36})\/preview/g;
+
 export function buildGraph(input: {
   notes: Note[];
   blogs: Blog[];
@@ -48,13 +50,39 @@ export function buildGraph(input: {
     }))
   ];
 
-  return {
-    nodes,
-    edges: input.edges.map((edge) => ({
-      id: edge.id,
-      source: edge.sourceId,
-      target: edge.targetId,
-      kind: edge.kind
-    }))
-  };
+  const boardIds = new Set(input.boards.map((b) => b.id));
+
+  const edges: KnowledgeGraphEdge[] = input.edges.map((edge) => ({
+    id: edge.id,
+    source: edge.sourceId,
+    target: edge.targetId,
+    kind: edge.kind
+  }));
+
+  // Auto-detect board embeds inside blog markdown and create edges
+  for (const blog of input.blogs) {
+    BOARD_EMBED_RE.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = BOARD_EMBED_RE.exec(blog.mdx)) !== null) {
+      const boardId = match[1];
+      if (boardIds.has(boardId)) {
+        const edgeId = `auto-blog-board-${blog.id}-${boardId}`;
+        if (!edges.some((e) => e.id === edgeId)) {
+          edges.push({ id: edgeId, source: blog.id, target: boardId, kind: "reference" });
+        }
+      }
+    }
+  }
+
+  // note → topic edges
+  for (const note of input.notes) {
+    if (note.topicId) {
+      const edgeId = `auto-note-topic-${note.id}-${note.topicId}`;
+      if (!edges.some((e) => e.id === edgeId)) {
+        edges.push({ id: edgeId, source: note.id, target: note.topicId, kind: "related" });
+      }
+    }
+  }
+
+  return { nodes, edges };
 }

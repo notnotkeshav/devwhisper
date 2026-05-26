@@ -58,3 +58,18 @@ a {
   --tw-prose-code: hsl(var(--accent-foreground));
   --tw-prose-quotes: hsl(var(--muted-foreground));
 }
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* rehype-autolink-headings wraps headings in <a> — strip underline */
+.prose :is(h1, h2, h3, h4, h5, h6) a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.prose :is(h1, h2, h3, h4, h5, h6) a:hover {
+  text-decoration: underline;
+}

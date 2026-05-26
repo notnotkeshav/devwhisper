@@ -2,15 +2,16 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/page/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { listBlogs, listArchivedBlogs, listTrashedBlogs } from "@/features/blogs/repository";
+
 import {
   restoreBlogAction,
   permanentDeleteBlogAction,
   unarchiveBlogAction
 } from "@/features/blogs/actions";
 import { BinControls, ArchiveButton } from "@/features/shared/item-controls";
+import { requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +22,14 @@ export default async function BlogsPage({
 }: {
   searchParams: Promise<{ view?: string }>;
 }) {
+  const user = await requireUser();
   const { view: viewParam } = await searchParams;
   const view: View = viewParam === "archive" ? "archive" : viewParam === "bin" ? "bin" : "active";
 
   const [active, archived, trashed] = await Promise.all([
-    listBlogs(),
-    listArchivedBlogs(),
-    listTrashedBlogs()
+    listBlogs(user.id),
+    listArchivedBlogs(user.id),
+    listTrashedBlogs(user.id)
   ]);
 
   const blogs = view === "archive" ? archived : view === "bin" ? trashed : active;
@@ -36,7 +38,7 @@ export default async function BlogsPage({
     <>
       <PageHeader
         title="Blogs"
-        description="Publishable MDX learning outputs with SEO, series, and KB backlinks."
+        description="Publishable learning outputs with wiki-links, board embeds, and reading time."
         actions={
           <Button asChild>
             <Link href="/blogs/new">
@@ -47,7 +49,6 @@ export default async function BlogsPage({
         }
       />
 
-      {/* View tabs */}
       <div className="flex gap-1 rounded-lg border p-1 self-start">
         {(
           [
@@ -71,31 +72,44 @@ export default async function BlogsPage({
       </div>
 
       {blogs.length ? (
-        <div className="grid gap-2">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {blogs.map((blog) => (
-            <div key={blog.id} className="rounded-lg border p-4">
-              <div className="flex items-start justify-between gap-3">
-                <Link href={`/blogs/${blog.slug}`} className="flex-1 hover:underline">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold">{blog.title}</h2>
-                    <Badge>{blog.isPublic ? "public" : "draft"}</Badge>
-                    {blog.archivedAt && <Badge>archived</Badge>}
-                  </div>
-                  {blog.excerpt && (
-                    <p className="mt-1 text-sm text-muted-foreground">{blog.excerpt}</p>
-                  )}
-                </Link>
+            <div
+              key={blog.id}
+              className="flex flex-col justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
+            >
+              <div className="flex-1">
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <Link href={`/blogs/${blog.slug}`} className="flex-1">
+                    <h2 className="text-sm font-semibold leading-snug hover:text-primary">
+                      {blog.title}
+                    </h2>
+                  </Link>
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
+                      blog.isPublic
+                        ? "bg-blue-400/10 text-blue-400"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {blog.isPublic ? "public" : "draft"}
+                  </span>
+                </div>
+                {blog.excerpt && (
+                  <p className="line-clamp-3 text-xs text-muted-foreground">{blog.excerpt}</p>
+                )}
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {blog.readingTimeMinutes}m read{blog.series ? ` · ${blog.series}` : ""}
+                </span>
                 {view === "bin" ? (
                   <BinControls
-                    onRestore={() => restoreBlogAction(blog.id)}
-                    onPermanentDelete={() => permanentDeleteBlogAction(blog.id)}
+                    onRestore={restoreBlogAction.bind(null, blog.id)}
+                    onPermanentDelete={permanentDeleteBlogAction.bind(null, blog.id)}
                   />
                 ) : view === "archive" ? (
-                  <ArchiveButton
-                    isArchived
-                    onArchive={async () => {}}
-                    onUnarchive={() => unarchiveBlogAction(blog.id)}
-                  />
+                  <ArchiveButton isArchived onUnarchive={unarchiveBlogAction.bind(null, blog.id)} />
                 ) : null}
               </div>
             </div>

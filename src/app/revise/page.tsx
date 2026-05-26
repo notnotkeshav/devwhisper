@@ -1,11 +1,13 @@
 import { PageHeader } from "@/components/page/page-header";
 import { getRevisionQueue } from "@/features/kb/repository";
 import { RevisionPanel } from "@/features/revise/revision-panel";
+import { requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function RevisePage() {
-  const notes = await getRevisionQueue();
+  const user = await requireUser();
+  const notes = await getRevisionQueue(user.id);
   return (
     <>
       <PageHeader

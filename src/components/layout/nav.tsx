@@ -25,10 +25,10 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/kb", label: "Knowledge Base", icon: BookOpen },
   { href: "/daily", label: "Daily", icon: CalendarDays },
-  { href: "/revise", label: "Revise", icon: Brain },
   { href: "/topics", label: "Topics", icon: NotebookTabs },
   { href: "/blogs", label: "Blogs", icon: SquarePen },
   { href: "/board", label: "Boards", icon: PenTool },
+  { href: "/revise", label: "Revise", icon: Brain },
   { href: "/graph", label: "Graph", icon: GitFork },
   { href: "/search", label: "Search", icon: Search },
   { href: "/settings", label: "Settings", icon: Settings }
