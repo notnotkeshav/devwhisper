@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs for the same branch/PR.
+# On push to main: cancel previous run if still running (only latest matters).
+# On PRs: cancel previous run for the same PR number.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimal permissions — jobs only read repo contents.
+permissions:
+  contents: read
+
+# ─── Shared env ───────────────────────────────────────────────────────────────
+env:
+  NODE_VERSION: "22" # LTS "Jod" — satisfies engines: >=20.11.0
+  PNPM_VERSION: "10.11.0" # Pinned to packageManager field in package.json
+
+# ─── Jobs ─────────────────────────────────────────────────────────────────────
+jobs:
+  # ── Lint ──────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm lint
+
+  # ── Type-check ────────────────────────────────────────────────────────────
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run TypeScript compiler
+        run: pnpm typecheck
+
+  # ── Build ─────────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Cache the Next.js build artefacts (.next/cache) so incremental
+      # compilation reuses previous output across CI runs on the same branch.
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          # Bust when dependencies change; keep when only source changes.
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**/*.[jt]s', 'src/**/*.[jt]sx') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nextjs-${{ runner.os }}-
+
+      - name: Build Next.js application
+        run: pnpm build
+        env:
+          # Silence the Vercel Analytics package-not-installed warning during build.
+          # Real env vars (DATABASE_URL, etc.) are not needed for a type/build check —
+          # next.config.ts makes all vars optional to allow exactly this use case.
+          NEXT_TELEMETRY_DISABLED: "1"
