@@ -35,7 +35,9 @@ describe("markdown export", () => {
       pinned: false,
       createdAt: now,
       updatedAt: now,
-      lastReviewed: null
+      lastReviewed: null,
+      archivedAt: null,
+      deletedAt: null
     } satisfies Note;
 
     expect(noteToPortableMarkdown(note)).toContain('---\ntitle: "WebSockets"');

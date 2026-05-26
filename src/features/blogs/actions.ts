@@ -76,10 +76,58 @@ export async function togglePublishAction(blogId: string) {
   revalidatePath(`/blogs/${blog.slug}`);
 }
 
-export async function deleteBlogAction(blogId: string) {
+export async function archiveBlogAction(blogId: string) {
+  await requireUser();
+  const db = getDb();
+  const blog = await db.query.blogs.findFirst({ where: eq(blogs.id, blogId) });
+  if (!blog) throw new Error("Blog not found.");
+  await db
+    .update(blogs)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(eq(blogs.id, blogId));
+  revalidatePath("/blogs");
+  revalidatePath(`/blogs/${blog.slug}`);
+}
+
+export async function unarchiveBlogAction(blogId: string) {
+  await requireUser();
+  const db = getDb();
+  const blog = await db.query.blogs.findFirst({ where: eq(blogs.id, blogId) });
+  if (!blog) throw new Error("Blog not found.");
+  await db
+    .update(blogs)
+    .set({ archivedAt: null, updatedAt: new Date() })
+    .where(eq(blogs.id, blogId));
+  revalidatePath("/blogs");
+  revalidatePath(`/blogs/${blog.slug}`);
+}
+
+export async function trashBlogAction(blogId: string) {
+  await requireUser();
+  const db = getDb();
+  const blog = await db.query.blogs.findFirst({ where: eq(blogs.id, blogId) });
+  if (!blog) throw new Error("Blog not found.");
+  await db
+    .update(blogs)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(eq(blogs.id, blogId));
+  revalidatePath("/blogs");
+  redirect("/blogs");
+}
+
+export async function restoreBlogAction(blogId: string) {
+  await requireUser();
+  const db = getDb();
+  await db
+    .update(blogs)
+    .set({ deletedAt: null, archivedAt: null, updatedAt: new Date() })
+    .where(eq(blogs.id, blogId));
+  revalidatePath("/blogs");
+}
+
+export async function permanentDeleteBlogAction(blogId: string) {
   await requireUser();
   const db = getDb();
   await db.delete(blogs).where(eq(blogs.id, blogId));
   revalidatePath("/blogs");
-  redirect("/blogs");
 }

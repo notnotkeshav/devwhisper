@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/page/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getBacklinks, getNoteBySlug } from "@/features/kb/repository";
+import { archiveNoteAction, unarchiveNoteAction, trashNoteAction } from "@/features/kb/actions";
+import { ArchiveButton, TrashButton } from "@/features/shared/item-controls";
 import { renderMarkdown } from "@/lib/markdown/render";
 
 export const dynamic = "force-dynamic";
@@ -19,12 +21,12 @@ export default async function NotePage({ params }: { params: Promise<{ slug: str
     <>
       <PageHeader
         title={note.title}
-        eyebrow={note.status}
+        eyebrow={note.archivedAt ? "archived" : note.status}
         description={
           note.shortSummary || "Layered summaries and reconstruction cues live with the note."
         }
         actions={
-          <>
+          <div className="flex flex-wrap gap-2">
             <Button asChild variant="secondary">
               <Link href={`/kb/${note.slug}/export`}>
                 <Download className="size-4" aria-hidden />
@@ -37,7 +39,13 @@ export default async function NotePage({ params }: { params: Promise<{ slug: str
                 Edit
               </Link>
             </Button>
-          </>
+            <ArchiveButton
+              isArchived={!!note.archivedAt}
+              onArchive={() => archiveNoteAction(note.id)}
+              onUnarchive={() => unarchiveNoteAction(note.id)}
+            />
+            <TrashButton onTrash={() => trashNoteAction(note.id)} />
+          </div>
         }
       />
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">

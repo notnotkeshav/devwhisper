@@ -36,10 +36,59 @@ export async function saveBoardSceneAction(boardId: string, scene: Record<string
   revalidatePath(`/board/${boardId}`);
 }
 
-export async function deleteBoardAction(boardId: string) {
+export async function saveBoardSnapshotAction(boardId: string, previewSvg: string) {
+  await requireUser();
+  const db = getDb();
+  await db.update(boards).set({ previewSvg, updatedAt: new Date() }).where(eq(boards.id, boardId));
+  revalidatePath(`/board/${boardId}`);
+}
+
+export async function archiveBoardAction(boardId: string) {
+  await requireUser();
+  const db = getDb();
+  await db
+    .update(boards)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(eq(boards.id, boardId));
+  revalidatePath("/board");
+  revalidatePath(`/board/${boardId}`);
+}
+
+export async function unarchiveBoardAction(boardId: string) {
+  await requireUser();
+  const db = getDb();
+  await db
+    .update(boards)
+    .set({ archivedAt: null, updatedAt: new Date() })
+    .where(eq(boards.id, boardId));
+  revalidatePath("/board");
+  revalidatePath(`/board/${boardId}`);
+}
+
+export async function trashBoardAction(boardId: string) {
+  await requireUser();
+  const db = getDb();
+  await db
+    .update(boards)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(eq(boards.id, boardId));
+  revalidatePath("/board");
+  redirect("/board");
+}
+
+export async function restoreBoardAction(boardId: string) {
+  await requireUser();
+  const db = getDb();
+  await db
+    .update(boards)
+    .set({ deletedAt: null, archivedAt: null, updatedAt: new Date() })
+    .where(eq(boards.id, boardId));
+  revalidatePath("/board");
+}
+
+export async function permanentDeleteBoardAction(boardId: string) {
   await requireUser();
   const db = getDb();
   await db.delete(boards).where(eq(boards.id, boardId));
   revalidatePath("/board");
-  redirect("/board");
 }

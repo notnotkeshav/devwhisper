@@ -54,3 +54,48 @@ export async function saveNoteAction(formData: FormData) {
   revalidatePath(`/kb/${slug}`);
   redirect(`/kb/${slug}`);
 }
+
+export async function archiveNoteAction(noteId: string) {
+  const db = getDb();
+  await db
+    .update(notes)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(eq(notes.id, noteId));
+  revalidatePath("/kb");
+}
+
+export async function unarchiveNoteAction(noteId: string) {
+  const db = getDb();
+  await db
+    .update(notes)
+    .set({ archivedAt: null, updatedAt: new Date() })
+    .where(eq(notes.id, noteId));
+  revalidatePath("/kb");
+}
+
+export async function trashNoteAction(noteId: string) {
+  const db = getDb();
+  const note = await db.query.notes.findFirst({ where: eq(notes.id, noteId) });
+  if (!note) throw new Error("Note not found.");
+  await db
+    .update(notes)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(eq(notes.id, noteId));
+  revalidatePath("/kb");
+  redirect("/kb");
+}
+
+export async function restoreNoteAction(noteId: string) {
+  const db = getDb();
+  await db
+    .update(notes)
+    .set({ deletedAt: null, archivedAt: null, updatedAt: new Date() })
+    .where(eq(notes.id, noteId));
+  revalidatePath("/kb");
+}
+
+export async function permanentDeleteNoteAction(noteId: string) {
+  const db = getDb();
+  await db.delete(notes).where(eq(notes.id, noteId));
+  revalidatePath("/kb");
+}

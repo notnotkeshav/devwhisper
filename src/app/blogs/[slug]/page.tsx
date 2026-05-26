@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/page/page-header";
 import { Button } from "@/components/ui/button";
 import { getBlogBySlug } from "@/features/blogs/repository";
 import { PublishButton } from "@/features/blogs/publish-button";
+import { archiveBlogAction, unarchiveBlogAction, trashBlogAction } from "@/features/blogs/actions";
+import { ArchiveButton, TrashButton } from "@/features/shared/item-controls";
 import { renderMarkdown } from "@/lib/markdown/render";
 
 export const dynamic = "force-dynamic";
@@ -18,10 +20,10 @@ export default async function BlogPage({ params }: { params: Promise<{ slug: str
     <>
       <PageHeader
         title={blog.title}
-        eyebrow={blog.isPublic ? "public" : "draft"}
+        eyebrow={blog.archivedAt ? "archived" : blog.isPublic ? "public" : "draft"}
         description={`${blog.readingTimeMinutes} min read${blog.series ? ` · ${blog.series}` : ""}`}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <PublishButton blogId={blog.id} isPublic={blog.isPublic} />
             <Button variant="secondary" asChild>
               <Link href={`/blogs/${slug}/edit`}>
@@ -29,6 +31,12 @@ export default async function BlogPage({ params }: { params: Promise<{ slug: str
                 Edit
               </Link>
             </Button>
+            <ArchiveButton
+              isArchived={!!blog.archivedAt}
+              onArchive={() => archiveBlogAction(blog.id)}
+              onUnarchive={() => unarchiveBlogAction(blog.id)}
+            />
+            <TrashButton onTrash={() => trashBlogAction(blog.id)} />
           </div>
         }
       />

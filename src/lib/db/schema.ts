@@ -130,7 +130,9 @@ export const notes = pgTable(
     pinned: boolean("pinned").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-    lastReviewed: timestamp("last_reviewed", { withTimezone: true })
+    lastReviewed: timestamp("last_reviewed", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true })
   },
   (table) => ({
     slugIdx: uniqueIndex("notes_user_slug_idx").on(table.userId, table.slug),
@@ -203,7 +205,9 @@ export const blogs = pgTable(
     readingTimeMinutes: integer("reading_time_minutes").default(1).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-    publishedAt: timestamp("published_at", { withTimezone: true })
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true })
   },
   (table) => ({
     slugIdx: uniqueIndex("blogs_user_slug_idx").on(table.userId, table.slug)
@@ -218,8 +222,11 @@ export const boards = pgTable("boards", {
   scene: jsonb("scene").$type<Record<string, unknown>>().default({}).notNull(),
   linkedNoteIds: jsonb("linked_note_ids").$type<string[]>().default([]).notNull(),
   linkedBlogIds: jsonb("linked_blog_ids").$type<string[]>().default([]).notNull(),
+  previewSvg: text("preview_svg"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true })
 });
 
 export const resources = pgTable("resources", {

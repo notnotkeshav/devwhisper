@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { env } from "@/lib/env";
 import { noteLinks, notes, type Note } from "@/lib/db/schema";
@@ -8,15 +8,34 @@ import { noteLinks, notes, type Note } from "@/lib/db/schema";
 export async function listNotes(limit = 50) {
   if (!env.DATABASE_URL) return [];
   return getDb().query.notes.findMany({
+    where: and(isNull(notes.archivedAt), isNull(notes.deletedAt)),
     orderBy: desc(notes.updatedAt),
     limit
+  });
+}
+
+export async function listArchivedNotes() {
+  if (!env.DATABASE_URL) return [];
+  return getDb().query.notes.findMany({
+    where: and(isNotNull(notes.archivedAt), isNull(notes.deletedAt)),
+    orderBy: desc(notes.updatedAt),
+    limit: 50
+  });
+}
+
+export async function listTrashedNotes() {
+  if (!env.DATABASE_URL) return [];
+  return getDb().query.notes.findMany({
+    where: isNotNull(notes.deletedAt),
+    orderBy: desc(notes.updatedAt),
+    limit: 50
   });
 }
 
 export async function listPinnedNotes() {
   if (!env.DATABASE_URL) return [];
   return getDb().query.notes.findMany({
-    where: eq(notes.pinned, true),
+    where: and(eq(notes.pinned, true), isNull(notes.archivedAt), isNull(notes.deletedAt)),
     orderBy: desc(notes.updatedAt),
     limit: 8
   });
@@ -47,7 +66,11 @@ export async function getRevisionQueue() {
   if (!env.DATABASE_URL) return [];
   const db = getDb();
   return db.query.notes.findMany({
-    where: or(isNull(notes.lastReviewed), eq(notes.status, "growing")),
+    where: and(
+      isNull(notes.archivedAt),
+      isNull(notes.deletedAt),
+      or(isNull(notes.lastReviewed), eq(notes.status, "growing"))
+    ),
     orderBy: desc(notes.forgettingScore),
     limit: 20
   });
@@ -77,7 +100,7 @@ export async function upsertNoteLinks(note: Note, links: Array<{ slug: string; l
 export async function getChildNotes(parentId: string) {
   if (!env.DATABASE_URL) return [];
   return getDb().query.notes.findMany({
-    where: and(eq(notes.parentId, parentId), eq(notes.status, "growing")),
+    where: and(eq(notes.parentId, parentId), eq(notes.status, "growing"), isNull(notes.deletedAt)),
     orderBy: desc(notes.updatedAt)
   });
 }
