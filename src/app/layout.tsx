@@ -13,6 +13,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className="dark">
       <body className="font-sans antialiased">
         <AppShell>{children}</AppShell>
+        <Analytics />
       </body>
     </html>
   );
