@@ -6,11 +6,27 @@ import { requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
-function radialLayout(count: number, index: number, radius = 300) {
-  if (count === 0) return { x: 0, y: 0 };
-  if (count === 1) return { x: 0, y: 0 };
-  const angle = (2 * Math.PI * index) / count - Math.PI / 2;
-  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+// Lay out a group of nodes in a grid, centred at (cx, cy) with given cell spacing
+function gridLayout(
+  list: { id: string }[],
+  cx: number,
+  cy: number,
+  cellW = 220,
+  cellH = 110
+): Map<string, { x: number; y: number }> {
+  const cols = Math.max(1, Math.ceil(Math.sqrt(list.length)));
+  const map = new Map<string, { x: number; y: number }>();
+  list.forEach((node, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const totalW = (Math.min(list.length, cols) - 1) * cellW;
+    const totalH = (Math.ceil(list.length / cols) - 1) * cellH;
+    map.set(node.id, {
+      x: cx - totalW / 2 + col * cellW,
+      y: cy - totalH / 2 + row * cellH
+    });
+  });
+  return map;
 }
 
 export default async function GraphPage() {
@@ -25,22 +41,20 @@ export default async function GraphPage() {
     topic: graph.nodes.filter((n) => n.type === "topic")
   };
 
-  // Place each type group in its own orbital ring
-  const typeOffsets: Record<string, { cx: number; cy: number; r: number }> = {
-    topic: { cx: 0, cy: 0, r: 0 },
-    note: { cx: 450, cy: 0, r: 160 },
-    blog: { cx: 0, cy: 380, r: 160 },
-    board: { cx: -450, cy: 0, r: 120 }
+  // Each type gets its own quadrant; grids within each quadrant prevent overlap
+  const typeOrigins: Record<string, { cx: number; cy: number }> = {
+    note: { cx: 500, cy: -250 },
+    blog: { cx: 500, cy: 250 },
+    board: { cx: -500, cy: -250 },
+    topic: { cx: -500, cy: 250 }
   };
 
   const positionMap = new Map<string, { x: number; y: number }>();
-
   for (const [type, list] of Object.entries(nodesByType)) {
-    const { cx, cy, r } = typeOffsets[type];
-    list.forEach((node, i) => {
-      const pos = radialLayout(list.length, i, r);
-      positionMap.set(node.id, { x: cx + pos.x, y: cy + pos.y });
-    });
+    const { cx, cy } = typeOrigins[type]!;
+    for (const [id, pos] of gridLayout(list, cx, cy)) {
+      positionMap.set(id, pos);
+    }
   }
 
   const nodes = graph.nodes.map((node) => ({

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { notes } from "@/lib/db/schema";
-import { extractWikiLinks } from "@/lib/markdown/wiki-links";
+import { extractWikiLinks, extractMarkdownLinks } from "@/lib/markdown/wiki-links";
 import { slugify } from "@/lib/utils/slug";
 import { noteFormSchema } from "./validation";
 import { upsertNoteLinks } from "./repository";
@@ -18,7 +18,9 @@ export async function saveNoteAction(formData: FormData) {
     shortSummary: formData.get("shortSummary") || undefined,
     mediumSummary: formData.get("mediumSummary") || undefined,
     deepSummary: formData.get("deepSummary") || undefined,
-    status: formData.get("status") || "seed"
+    status: formData.get("status") || "seed",
+    topicId:
+      formData.get("topicId") === "__none__" ? undefined : formData.get("topicId") || undefined
   });
 
   if (!parsed.success) {
@@ -37,6 +39,7 @@ export async function saveNoteAction(formData: FormData) {
     mediumSummary: parsed.data.mediumSummary ?? "",
     deepSummary: parsed.data.deepSummary ?? "",
     status: parsed.data.status,
+    topicId: parsed.data.topicId ?? null,
     updatedAt: new Date()
   };
 
@@ -45,14 +48,27 @@ export async function saveNoteAction(formData: FormData) {
     : await db.insert(notes).values(values).returning();
 
   const wikiLinks = extractWikiLinks(parsed.data.markdown);
-  await upsertNoteLinks(
-    saved,
-    wikiLinks.map((link) => ({ slug: link.slug, label: link.alias ?? link.label }))
-  );
+  const mdLinks = extractMarkdownLinks(parsed.data.markdown)
+    .filter((l) => !l.isExternal && l.href.startsWith("/kb/"))
+    .map((l) => ({ slug: l.href.replace(/^\/kb\//, "").split("/")[0]!, label: l.label }));
+  const merged = new Map<string, { slug: string; label: string }>();
+  for (const l of wikiLinks) merged.set(l.slug, { slug: l.slug, label: l.alias ?? l.label });
+  for (const l of mdLinks) if (!merged.has(l.slug)) merged.set(l.slug, l);
+  await upsertNoteLinks(saved, [...merged.values()]);
 
   revalidatePath("/kb");
   revalidatePath(`/kb/${slug}`);
   redirect(`/kb/${slug}`);
+}
+
+export async function togglePinNoteAction(noteId: string, currentlyPinned: boolean) {
+  const db = getDb();
+  await db
+    .update(notes)
+    .set({ pinned: !currentlyPinned, updatedAt: new Date() })
+    .where(eq(notes.id, noteId));
+  revalidatePath("/kb");
+  revalidatePath("/dashboard");
 }
 
 export async function archiveNoteAction(noteId: string) {

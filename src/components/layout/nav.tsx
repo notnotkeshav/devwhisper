@@ -4,13 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Route } from "next";
 import {
-  BarChart3,
   BookOpen,
   Brain,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  GitFork,
+  Network,
   Home,
   LayoutDashboard,
   NotebookTabs,
@@ -27,9 +26,9 @@ const navItems = [
   { href: "/daily", label: "Daily", icon: CalendarDays },
   { href: "/topics", label: "Topics", icon: NotebookTabs },
   { href: "/blogs", label: "Blogs", icon: SquarePen },
-  { href: "/board", label: "Boards", icon: PenTool },
+  { href: "/boards", label: "Boards", icon: PenTool },
   { href: "/revise", label: "Revise", icon: Brain },
-  { href: "/graph", label: "Graph", icon: GitFork },
+  { href: "/graph", label: "Graph", icon: Network },
   { href: "/search", label: "Search", icon: Search },
   { href: "/settings", label: "Settings", icon: Settings }
 ] satisfies Array<{ href: Route; label: string; icon: typeof LayoutDashboard }>;
@@ -88,11 +87,7 @@ export function SidebarNav({ collapsed = false, onToggleCollapse, onNavigate }: 
       {/* Footer / branding */}
       {!collapsed && (
         <div className="border-t p-3 text-xs text-muted-foreground">
-          <div className="mb-1 flex items-center gap-2 font-medium text-foreground">
-            <BarChart3 className="size-3.5" aria-hidden />
-            Recall OS
-          </div>
-          <p>Markdown-first memory compression, revision, and reconstruction.</p>
+          <p>Capture → connect → recall.</p>
         </div>
       )}
 

@@ -200,6 +200,7 @@ export const blogs = pgTable(
     mdx: text("mdx").notNull().default(""),
     excerpt: text("excerpt").default("").notNull(),
     series: text("series"),
+    topicId: uuid("topic_id").references(() => topics.id, { onDelete: "set null" }),
     isPublic: boolean("is_public").default(false).notNull(),
     seo: jsonb("seo").$type<Record<string, unknown>>().default({}).notNull(),
     readingTimeMinutes: integer("reading_time_minutes").default(1).notNull(),

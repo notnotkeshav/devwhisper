@@ -150,3 +150,25 @@ git reset --soft HEAD~1    # undo last local commit, keep changes staged
 ```
 
 Never `reset --hard` on commits already pushed to `develop` or `main`.
+
+## Commit and Validation Rules
+
+- On each commit, update the package version appropriately following semantic versioning.
+- Update Readme.md and other docs to be updated to latest version for minor and major release
+- Every change must be optimized for:
+  - lower token consumption
+  - higher execution success rate
+  - measurable improvements
+  - maintainability
+  - security
+- All generated changes are expected to be rechecked and evaluated by:
+  - Codex
+  - Gemini CLI
+- Avoid unnecessary abstractions, verbose implementations, dead code, and redundant dependencies.
+- Prefer deterministic, production-grade implementations over experimental patterns.
+- All modifications must preserve CI stability, lint correctness, type safety, and build integrity.
+- Any introduced dependency must be justified by measurable improvement.
+- Minimize file churn and avoid unrelated formatting diffs.
+- Prefer surgical patches over large rewrites.
+- Preserve backward compatibility unless explicitly instructed otherwise.
+- Do not bypass existing lint, typecheck, security, or CI constraints.

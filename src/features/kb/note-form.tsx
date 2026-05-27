@@ -5,13 +5,29 @@ import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectItem } from "@/components/ui/select";
 import type { Note } from "@/lib/db/schema";
 import { saveNoteAction } from "./actions";
-import { BlogEditor } from "@/features/blogs/blog-editor";
+import { BlogEditor, type InternalLink } from "@/features/blogs/blog-editor";
 
-const statuses = ["seed", "growing", "evergreen", "archived"] as const;
+const statuses = [
+  { value: "seed", label: "Seed" },
+  { value: "growing", label: "Growing" },
+  { value: "evergreen", label: "Evergreen" },
+  { value: "archived", label: "Archived" }
+] as const;
 
-export function NoteForm({ note }: { note?: Note | null }) {
+type TopicOption = { id: string; title: string };
+
+export function NoteForm({
+  note,
+  internalLinks = [],
+  topics = []
+}: {
+  note?: Note | null;
+  internalLinks?: InternalLink[];
+  topics?: TopicOption[];
+}) {
   const [pending, startTransition] = useTransition();
   const [markdown, setMarkdown] = useState(note?.markdown ?? "");
 
@@ -25,19 +41,43 @@ export function NoteForm({ note }: { note?: Note | null }) {
       {/* Meta row */}
       <div className="grid gap-3 md:grid-cols-[1fr_200px_160px]">
         <Input name="title" defaultValue={note?.title} required placeholder="Title" />
-        <Input name="slug" defaultValue={note?.slug} placeholder="slug (auto)" />
-        <select
-          name="status"
-          defaultValue={note?.status ?? "seed"}
-          className="h-9 rounded-md border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        >
+        <Input
+          name="slug"
+          defaultValue={note?.slug}
+          placeholder="slug (auto-generated)"
+          readOnly={!!note}
+          className={note ? "cursor-not-allowed opacity-60" : ""}
+          title={note ? "Slug is locked after first save" : undefined}
+        />
+        <Select name="status" defaultValue={note?.status ?? "seed"} placeholder="Status">
           {statuses.map((s) => (
-            <option key={s} value={s} className="capitalize">
-              {s}
-            </option>
+            <SelectItem key={s.value} value={s.value}>
+              {s.label}
+            </SelectItem>
           ))}
-        </select>
+        </Select>
       </div>
+
+      {topics.length > 0 && (
+        <div className="flex items-center gap-3">
+          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+            Topic
+          </label>
+          <Select
+            name="topicId"
+            defaultValue={note?.topicId ?? "__none__"}
+            placeholder="No topic"
+            className="w-56"
+          >
+            <SelectItem value="__none__">No topic</SelectItem>
+            {topics.map((t) => (
+              <SelectItem key={t.id} value={t.id}>
+                {t.title}
+              </SelectItem>
+            ))}
+          </Select>
+        </div>
+      )}
 
       {/* Main area: editor left, summaries right */}
       <div className="grid gap-4 xl:grid-cols-[1fr_300px]">
@@ -45,7 +85,11 @@ export function NoteForm({ note }: { note?: Note | null }) {
           <p className="text-xs text-muted-foreground">
             Main content — use <code>[[wiki links]]</code> to create graph edges.
           </p>
-          <BlogEditor initialContent={markdown} onChange={setMarkdown} />
+          <BlogEditor
+            initialContent={markdown}
+            onChange={setMarkdown}
+            internalLinks={internalLinks}
+          />
         </div>
 
         <aside className="grid content-start gap-3">
