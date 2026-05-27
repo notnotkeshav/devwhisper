@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Download, Pencil } from "lucide-react";
+import { Download, Pencil, Pin, PinOff } from "lucide-react";
 import { PageHeader } from "@/components/page/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getBacklinks, getNoteBySlug, getOutgoingLinks } from "@/features/kb/repository";
-import { archiveNoteAction, unarchiveNoteAction, trashNoteAction } from "@/features/kb/actions";
+import {
+  archiveNoteAction,
+  unarchiveNoteAction,
+  trashNoteAction,
+  togglePinNoteAction
+} from "@/features/kb/actions";
 import { ArchiveButton, TrashButton } from "@/features/shared/item-controls";
 import { renderMarkdown } from "@/lib/markdown/render";
 import { resolveWikiLinks } from "@/lib/markdown/resolve-wiki-links";
+import { extractMarkdownLinks } from "@/lib/markdown/wiki-links";
 import { requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -23,18 +29,37 @@ export default async function NotePage({ params }: { params: Promise<{ slug: str
     getBacklinks(slug),
     getOutgoingLinks(note.id)
   ]);
+  const mdLinks = extractMarkdownLinks(note.markdown);
+  const internalMdLinks = mdLinks.filter((l) => !l.isExternal);
+  const externalLinks = mdLinks.filter((l) => l.isExternal);
   const html = await renderMarkdown(note.markdown, hrefs);
 
   return (
     <>
       <PageHeader
         title={note.title}
-        eyebrow={note.archivedAt ? "archived" : note.status}
+        eyebrow={
+          note.archivedAt ? "Archived" : note.status.charAt(0).toUpperCase() + note.status.slice(1)
+        }
         description={
           note.shortSummary || "Layered summaries and reconstruction cues live with the note."
         }
         actions={
           <div className="flex flex-wrap gap-2">
+            <form action={togglePinNoteAction.bind(null, note.id, !!note.pinned)}>
+              <Button
+                type="submit"
+                variant="secondary"
+                title={note.pinned ? "Unpin from dashboard" : "Pin to dashboard"}
+              >
+                {note.pinned ? (
+                  <PinOff className="size-4" aria-hidden />
+                ) : (
+                  <Pin className="size-4" aria-hidden />
+                )}
+                {note.pinned ? "Unpin" : "Pin"}
+              </Button>
+            </form>
             <Button asChild variant="secondary">
               <Link href={`/kb/${note.slug}/export`}>
                 <Download className="size-4" aria-hidden />
@@ -63,86 +88,90 @@ export default async function NotePage({ params }: { params: Promise<{ slug: str
         />
         <aside className="grid content-start gap-4">
           <section className="rounded-lg border p-4">
-            <h2 className="mb-3 text-sm font-semibold">Recall scores</h2>
-            <div className="grid gap-3 text-sm">
-              {(
-                [
-                  {
-                    label: "Confidence",
-                    value: note.confidenceScore,
-                    color: "bg-emerald-500",
-                    tip: "How well you self-reported knowing this after reviews"
-                  },
-                  {
-                    label: "Mastery",
-                    value: note.masteryScore,
-                    color: "bg-blue-500",
-                    tip: "Long-term weighted average of past confidence scores"
-                  },
-                  {
-                    label: "Forgetting",
-                    value: note.forgettingScore,
-                    color: "bg-amber-500",
-                    tip: "Decays over time — rises when overdue, falls after review"
-                  }
-                ] as const
-              ).map(({ label, value, color, tip }) => (
-                <div key={label}>
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="text-muted-foreground" title={tip}>
-                      {label}
-                    </span>
-                    <span className="tabular-nums text-foreground">
-                      {(value * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full rounded-full ${color}`}
-                      style={{ width: `${Math.min(100, value * 100).toFixed(1)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-              <p className="text-xs text-muted-foreground">
-                Revision #{note.revisionCount} · next in {note.revisionIntervalDays}d
-              </p>
-            </div>
-          </section>
-          <section className="rounded-lg border p-4">
-            <h2 className="mb-3 text-sm font-semibold">Backlinks</h2>
+            <h2
+              className="mb-1 text-sm font-semibold"
+              title="Other notes that reference this note using [[wiki links]] — the reverse of outgoing links"
+            >
+              Backlinks
+            </h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Notes that link <em>to</em> this one via <code>[[wiki links]]</code>
+            </p>
             <div className="grid gap-2">
               {backlinks.length ? (
                 backlinks.map((link) => (
                   <Link
                     key={link.source.id}
                     href={`/kb/${link.source.slug}`}
-                    className="text-sm text-primary"
+                    className="text-sm text-primary hover:underline"
                   >
-                    {link.source.title}
+                    ← {link.source.title}
                   </Link>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground">No backlinks yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  No notes link here yet. Add <code>[[{note.slug}]]</code> in another note.
+                </p>
               )}
             </div>
           </section>
           <section className="rounded-lg border p-4">
-            <h2 className="mb-3 text-sm font-semibold">Linked concepts</h2>
-            <div className="flex flex-wrap gap-2">
-              {outgoingLinks.length ? (
-                outgoingLinks.map((link) => (
-                  <Link
-                    key={link.targetSlug}
-                    href={(hrefs.get(link.targetSlug) ?? `/kb/${link.targetSlug}`) as never}
-                  >
-                    <Badge>{link.label}</Badge>
-                  </Link>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">No outgoing links yet.</p>
-              )}
-            </div>
+            <h2
+              className="mb-1 text-sm font-semibold"
+              title="All links from this note — internal wiki links and external URLs"
+            >
+              Outgoing links
+            </h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Internal wiki links and external URLs referenced in this note
+            </p>
+            {outgoingLinks.length === 0 &&
+            internalMdLinks.length === 0 &&
+            externalLinks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No links yet.</p>
+            ) : (
+              <div className="grid gap-3">
+                {(outgoingLinks.length > 0 || internalMdLinks.length > 0) && (
+                  <div>
+                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">Internal</p>
+                    <div className="flex flex-wrap gap-2">
+                      {outgoingLinks.map((link) => (
+                        <Link
+                          key={link.targetSlug}
+                          href={(hrefs.get(link.targetSlug) ?? `/kb/${link.targetSlug}`) as never}
+                        >
+                          <Badge>{link.label}</Badge>
+                        </Link>
+                      ))}
+                      {internalMdLinks.map((link) => (
+                        <Link key={link.href} href={link.href as never}>
+                          <Badge className="border">{link.label}</Badge>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {externalLinks.length > 0 && (
+                  <div>
+                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">External</p>
+                    <div className="grid gap-1.5">
+                      {externalLinks.map((link) => (
+                        <a
+                          key={link.href}
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="truncate text-sm text-primary hover:underline"
+                          title={link.href}
+                        >
+                          ↗ {link.label}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         </aside>
       </div>

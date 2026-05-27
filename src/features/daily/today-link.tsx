@@ -12,9 +12,10 @@ export function TodayLink() {
   return (
     <Link
       href={`/daily/${dateStr}`}
+      title={`Open today's log (${dateStr})`}
       className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
     >
-      Today
+      {"Open today's log"}
     </Link>
   );
 }

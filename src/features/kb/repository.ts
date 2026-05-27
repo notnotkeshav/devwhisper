@@ -1,9 +1,18 @@
 import "server-only";
 
-import { and, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { env } from "@/lib/env";
 import { noteLinks, notes, type Note } from "@/lib/db/schema";
+
+export async function countActiveNotes(userId: string) {
+  if (!env.DATABASE_URL) return 0;
+  const result = await getDb()
+    .select({ n: count() })
+    .from(notes)
+    .where(and(eq(notes.userId, userId), isNull(notes.archivedAt), isNull(notes.deletedAt)));
+  return result[0]?.n ?? 0;
+}
 
 export async function listNotes(userId: string, limit = 50) {
   if (!env.DATABASE_URL) return [];

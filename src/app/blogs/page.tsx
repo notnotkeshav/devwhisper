@@ -92,7 +92,7 @@ export default async function BlogsPage({
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {blog.isPublic ? "public" : "draft"}
+                    {blog.isPublic ? "Public" : "Draft"}
                   </span>
                 </div>
                 {blog.excerpt && (

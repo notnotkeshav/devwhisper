@@ -21,8 +21,8 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
     <>
       <PageHeader
         title={board.title}
-        eyebrow={board.archivedAt ? "archived" : undefined}
-        description="Pan, zoom, draw, and preserve JSON scene data for portable diagrams."
+        eyebrow={board.archivedAt ? "Archived" : "Board"}
+        description="Pan, zoom, and draw — scenes are saved automatically as portable JSON."
         actions={
           <div className="flex gap-2">
             <ArchiveButton

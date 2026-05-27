@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
@@ -13,7 +13,7 @@ import { common, createLowlight } from "lowlight";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Image from "@tiptap/extension-image";
 import { Markdown } from "@tiptap/markdown";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bold,
   Code,
@@ -35,14 +35,43 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { cn } from "@/lib/utils/cn";
 import type { Board } from "@/lib/db/schema";
+import { slugify } from "@/lib/utils/slug";
 
 const lowlight = createLowlight(common);
+
+export type InternalLink = { label: string; href: string; type: "note" | "blog" | "topic" };
 
 interface Props {
   initialContent: string;
   onChange: (markdown: string) => void;
+  onHtmlChange?: (html: string) => void;
   boards?: Pick<Board, "id" | "title" | "previewSvg">[];
+  internalLinks?: InternalLink[];
 }
+
+// Adds Ctrl+` as an alias for toggleCode
+const InlineCodeShortcut = Extension.create({
+  name: "inlineCodeShortcut",
+  addKeyboardShortcuts() {
+    return {
+      "Mod-`": () => this.editor.commands.toggleCode()
+    };
+  }
+});
+
+// Prevents Tab from creating a new row when at the last table cell
+const NoTabNewRow = Extension.create({
+  name: "noTabNewRow",
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => {
+        if (!this.editor.isActive("table")) return false;
+        this.editor.commands.goToNextCell();
+        return true; // Always consume Tab in a table — never let default "add row" handler run
+      }
+    };
+  }
+});
 
 function ToolbarButton({
   active,
@@ -74,14 +103,248 @@ function Separator() {
   return <div className="mx-1 h-5 w-px bg-border" />;
 }
 
-export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
+/** Link insertion dialog — supports external URLs + optional internal link picker */
+function LinkDialog({
+  open,
+  onOpenChange,
+  initialUrl,
+  internalLinks,
+  onConfirm
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  initialUrl: string;
+  internalLinks: InternalLink[];
+  onConfirm: (url: string) => void;
+}) {
+  const [url, setUrl] = useState(initialUrl);
+  const [search, setSearch] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [open]);
+
+  const filtered = internalLinks.filter(
+    (l) =>
+      !search ||
+      l.label.toLowerCase().includes(search.toLowerCase()) ||
+      l.href.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const typeLabel: Record<InternalLink["type"], string> = {
+    note: "Note",
+    blog: "Blog",
+    topic: "Topic"
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(480px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card p-4 shadow-2xl">
+          <VisuallyHidden>
+            <Dialog.Description>Insert or edit a link</Dialog.Description>
+          </VisuallyHidden>
+          <Dialog.Title className="mb-3 text-sm font-semibold">Insert link</Dialog.Title>
+
+          <div className="grid gap-3">
+            {/* External URL */}
+            <div className="grid gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">External URL</label>
+              <input
+                ref={inputRef}
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://example.com"
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    onConfirm(url);
+                    onOpenChange(false);
+                  }
+                }}
+              />
+            </div>
+
+            {/* Internal link picker */}
+            {internalLinks.length > 0 && (
+              <div className="grid gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Or pick an internal page
+                </label>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search notes, blogs, topics…"
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <div className="max-h-48 overflow-y-auto rounded-md border">
+                  {filtered.length === 0 ? (
+                    <p className="p-3 text-xs text-muted-foreground">No results.</p>
+                  ) : (
+                    filtered.slice(0, 30).map((l) => (
+                      <button
+                        key={l.href}
+                        type="button"
+                        onClick={() => {
+                          onConfirm(l.href);
+                          onOpenChange(false);
+                        }}
+                        className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-muted"
+                      >
+                        <span className="truncate">{l.label}</span>
+                        <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                          {typeLabel[l.type]}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-between gap-2">
+              {url && (
+                <button
+                  type="button"
+                  className="text-xs text-destructive hover:underline"
+                  onClick={() => {
+                    onConfirm("");
+                    onOpenChange(false);
+                  }}
+                >
+                  Remove link
+                </button>
+              )}
+              <div className="ml-auto flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onOpenChange(false)}
+                  className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onConfirm(url);
+                    onOpenChange(false);
+                  }}
+                  className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+/** Table insert dialog — lets user choose rows and columns */
+function TableDialog({
+  open,
+  onOpenChange,
+  onConfirm
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onConfirm: (rows: number, cols: number) => void;
+}) {
+  const [rows, setRows] = useState(3);
+  const [cols, setCols] = useState(3);
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(320px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card p-4 shadow-2xl">
+          <VisuallyHidden>
+            <Dialog.Description>Configure table size</Dialog.Description>
+          </VisuallyHidden>
+          <Dialog.Title className="mb-3 text-sm font-semibold">Insert table</Dialog.Title>
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Rows</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={rows}
+                  onChange={(e) => setRows(Math.max(1, Math.min(20, Number(e.target.value))))}
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Columns</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={cols}
+                  onChange={(e) => setCols(Math.max(1, Math.min(20, Number(e.target.value))))}
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onConfirm(rows, cols);
+                  onOpenChange(false);
+                }}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+              >
+                Insert
+              </button>
+            </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+// Regex matching both [[label]] and TipTap-escaped \[\[label\]\]
+const wikiLinkHtmlPattern = /\\?\[\\?\[([^\]\\|]+)(?:\|([^\]\\]+))?\\?\]\\?\]/g;
+
+export function BlogEditor({
+  initialContent,
+  onChange,
+  onHtmlChange,
+  boards = [],
+  internalLinks = []
+}: Props) {
   const [boardPickerOpen, setBoardPickerOpen] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [tableDialogOpen, setTableDialogOpen] = useState(false);
+  const [currentLinkUrl, setCurrentLinkUrl] = useState("");
+  // Ref so the useEditor callback always reads current internalLinks without recreating the editor
+  const internalLinksRef = useRef(internalLinks);
+  useEffect(() => {
+    internalLinksRef.current = internalLinks;
+  }, [internalLinks]);
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ codeBlock: false, link: { openOnClick: false } }),
+      StarterKit.configure({ codeBlock: false }),
+      InlineCodeShortcut,
+      NoTabNewRow,
       Markdown,
-      Placeholder.configure({ placeholder: "Start writing your blog post…" }),
+      Placeholder.configure({ placeholder: "Start writing…" }),
       TaskList,
       TaskItem.configure({ nested: true }),
       Table.configure({ resizable: false }),
@@ -100,6 +363,20 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
         }
       ).storage.markdown.manager;
       onChange(manager.serialize(editor.getJSON()));
+
+      if (onHtmlChange) {
+        // Post-process HTML: convert [[wiki-link]] text nodes to <a> links
+        const links = internalLinksRef.current;
+        const html = editor
+          .getHTML()
+          .replace(wikiLinkHtmlPattern, (_, label: string, alias?: string) => {
+            const text = alias?.trim() ?? label.trim();
+            const match = links.find((l) => l.label.toLowerCase() === label.trim().toLowerCase());
+            const href = match?.href ?? `/kb/${slugify(label.trim())}`;
+            return `<a href="${href}" class="text-primary hover:underline">${text}</a>`;
+          });
+        onHtmlChange(html);
+      }
     },
     editorProps: {
       attributes: {
@@ -118,7 +395,6 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
     ).storage.markdown.manager;
     const doc = manager.parse(initialContent);
     editor.commands.setContent(doc as never);
-    // only run on mount — initialContent changes are intentionally ignored
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
@@ -131,7 +407,6 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
   function insertBoard(board: Pick<Board, "id" | "title" | "previewSvg">) {
     if (!editor) return;
     setBoardPickerOpen(false);
-
     if (board.previewSvg) {
       editor
         .chain()
@@ -149,15 +424,20 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
     }
   }
 
-  function setLink() {
+  function openLinkDialog() {
     if (!editor) return;
     const prev = editor.getAttributes("link").href as string | undefined;
-    const url = prompt("URL:", prev ?? "https://");
-    if (url === null) return;
-    if (url === "") {
+    setCurrentLinkUrl(prev ?? "");
+    setLinkDialogOpen(true);
+  }
+
+  function applyLink(url: string) {
+    if (!editor) return;
+    if (!url) {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
     } else {
-      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+      const href = /^https?:\/\/|^\/|^#|^mailto:/i.test(url) ? url : `https://${url}`;
+      editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
     }
   }
 
@@ -185,14 +465,14 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
         <Separator />
 
         <ToolbarButton
-          title="Bold"
+          title="Bold (Ctrl+B)"
           active={editor.isActive("bold")}
           onClick={() => editor.chain().focus().toggleBold().run()}
         >
           <Bold className="size-4" />
         </ToolbarButton>
         <ToolbarButton
-          title="Italic"
+          title="Italic (Ctrl+I)"
           active={editor.isActive("italic")}
           onClick={() => editor.chain().focus().toggleItalic().run()}
         >
@@ -206,7 +486,7 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
           <Strikethrough className="size-4" />
         </ToolbarButton>
         <ToolbarButton
-          title="Inline code"
+          title="Inline code (Ctrl+E or Ctrl+`)"
           active={editor.isActive("code")}
           onClick={() => editor.chain().focus().toggleCode().run()}
         >
@@ -237,7 +517,7 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
           <ListOrdered className="size-4" />
         </ToolbarButton>
         <ToolbarButton
-          title="Task list"
+          title="Task / checklist"
           active={editor.isActive("taskList")}
           onClick={() => editor.chain().focus().toggleTaskList().run()}
         >
@@ -254,11 +534,9 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
           <Code2 className="size-4" />
         </ToolbarButton>
         <ToolbarButton
-          title="Insert table"
+          title="Insert table (choose rows & columns)"
           active={editor.isActive("table")}
-          onClick={() =>
-            editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-          }
+          onClick={() => setTableDialogOpen(true)}
         >
           <TableIcon className="size-4" />
         </ToolbarButton>
@@ -272,7 +550,11 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
 
         <Separator />
 
-        <ToolbarButton title="Link" active={editor.isActive("link")} onClick={setLink}>
+        <ToolbarButton
+          title="Insert / edit link"
+          active={editor.isActive("link")}
+          onClick={openLinkDialog}
+        >
           <LinkIcon className="size-4" />
         </ToolbarButton>
 
@@ -308,11 +590,9 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
                         className="flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted"
                       >
                         <span>{board.title}</span>
-                        {board.previewSvg ? (
-                          <span className="text-xs text-muted-foreground">has snapshot</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">no snapshot</span>
-                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {board.previewSvg ? "has snapshot" : "no snapshot"}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -324,6 +604,23 @@ export function BlogEditor({ initialContent, onChange, boards = [] }: Props) {
       </div>
 
       <EditorContent editor={editor} />
+
+      <LinkDialog
+        key={linkDialogOpen ? currentLinkUrl : "closed"}
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
+        initialUrl={currentLinkUrl}
+        internalLinks={internalLinks}
+        onConfirm={applyLink}
+      />
+
+      <TableDialog
+        open={tableDialogOpen}
+        onOpenChange={setTableDialogOpen}
+        onConfirm={(rows, cols) =>
+          editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
+        }
+      />
     </div>
   );
 }

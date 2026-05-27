@@ -73,3 +73,34 @@ a {
 .prose :is(h1, h2, h3, h4, h5, h6) a:hover {
   text-decoration: underline;
 }
+
+/* Table styles — shared between editor (.ProseMirror) and rendered preview (.prose) */
+.prose table,
+.ProseMirror table {
+  border-collapse: collapse !important;
+  width: 100%;
+  margin: 0.75rem 0;
+  font-size: 0.875rem;
+}
+.prose table th,
+.prose table td,
+.ProseMirror table th,
+.ProseMirror table td {
+  border: 1px solid hsl(var(--border)) !important;
+  padding: 0.4rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+.prose table th,
+.ProseMirror table th {
+  background: hsl(var(--muted));
+  font-weight: 600;
+}
+/* Override prose-invert's default row-only border */
+.prose thead,
+.prose tbody tr {
+  border: none;
+}
+.ProseMirror table .selectedCell {
+  background: hsl(var(--accent));
+}

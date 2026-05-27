@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 import { PageHeader } from "@/components/page/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -44,12 +48,12 @@ export default async function KnowledgeBasePage({
     <>
       <PageHeader
         title="Knowledge Base"
-        description="Markdown-first concept memory with summaries, backlinks, status, and revision metadata."
+        description="Markdown-first notes with summaries, backlinks, wiki links, and topic grouping."
         actions={
           <Button asChild>
             <Link href="/kb/new">
               <Plus className="size-4" aria-hidden />
-              Capture
+              New note
             </Link>
           </Button>
         }
@@ -94,7 +98,7 @@ export default async function KnowledgeBasePage({
                   <span
                     className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${statusColor[note.status] ?? "bg-muted text-muted-foreground"}`}
                   >
-                    {note.status}
+                    {capitalize(note.status)}
                   </span>
                 </div>
                 <p className="line-clamp-3 text-xs text-muted-foreground">
@@ -102,7 +106,13 @@ export default async function KnowledgeBasePage({
                 </p>
               </div>
               <div className="mt-3 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Rev #{note.revisionCount}</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(note.updatedAt).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric"
+                  })}
+                </span>
                 {view === "bin" ? (
                   <BinControls
                     onRestore={restoreNoteAction.bind(null, note.id)}

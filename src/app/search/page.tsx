@@ -26,7 +26,7 @@ export default async function SearchPage({
 
   const hrefFor = (result: (typeof results)[number]): Route => {
     if (result.type === "note") return `/kb/${result.slug}` as Route;
-    if (result.type === "board") return `/board/${result.id}` as Route;
+    if (result.type === "board") return `/boards/${result.id}` as Route;
     return `/${result.type}s/${result.slug}` as Route;
   };
 
@@ -37,24 +37,38 @@ export default async function SearchPage({
         description="Full-text search across notes, blogs, boards, and topics."
       />
 
-      <form className="mb-6 flex gap-2">
-        <div className="relative flex-1">
-          <Search
-            className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            name="q"
-            defaultValue={q}
-            placeholder="Search by title, content, or concept…"
-            className="pl-9"
-            autoFocus
-          />
-        </div>
-      </form>
+      <div className="grid gap-1.5">
+        <form className="flex gap-2">
+          <div className="relative flex-1">
+            <Search
+              className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              name="q"
+              defaultValue={q}
+              placeholder="Search by title, content, or concept…"
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+          <button
+            type="submit"
+            className="flex items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Search className="size-4" aria-hidden />
+            Search
+          </button>
+        </form>
+        <p className="text-xs text-muted-foreground">
+          Press <kbd className="rounded bg-muted px-1 py-0.5 text-[10px]">Enter</kbd> or click
+          Search. Partial words work — &ldquo;rea&rdquo; matches &ldquo;react&rdquo;,
+          &ldquo;read&rdquo;, etc.
+        </p>
+      </div>
 
       {q && (
-        <p className="mb-4 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {results.length
             ? `${results.length} result${results.length === 1 ? "" : "s"} for "${q}"`
             : `No results for "${q}"`}

@@ -25,22 +25,22 @@ export async function createBoardAction(formData: FormData) {
     .values({ userId: user.id, title: parsed.data.title, slug })
     .returning({ id: boards.id });
 
-  revalidatePath("/board");
-  redirect(`/board/${board.id}`);
+  revalidatePath("/boards");
+  redirect(`/boards/${board.id}`);
 }
 
 export async function saveBoardSceneAction(boardId: string, scene: Record<string, unknown>) {
   await requireUser();
   const db = getDb();
   await db.update(boards).set({ scene, updatedAt: new Date() }).where(eq(boards.id, boardId));
-  revalidatePath(`/board/${boardId}`);
+  revalidatePath(`/boards/${boardId}`);
 }
 
 export async function saveBoardSnapshotAction(boardId: string, previewSvg: string) {
   await requireUser();
   const db = getDb();
   await db.update(boards).set({ previewSvg, updatedAt: new Date() }).where(eq(boards.id, boardId));
-  revalidatePath(`/board/${boardId}`);
+  revalidatePath(`/boards/${boardId}`);
 }
 
 export async function archiveBoardAction(boardId: string) {
@@ -50,8 +50,8 @@ export async function archiveBoardAction(boardId: string) {
     .update(boards)
     .set({ archivedAt: new Date(), updatedAt: new Date() })
     .where(eq(boards.id, boardId));
-  revalidatePath("/board");
-  revalidatePath(`/board/${boardId}`);
+  revalidatePath("/boards");
+  revalidatePath(`/boards/${boardId}`);
 }
 
 export async function unarchiveBoardAction(boardId: string) {
@@ -61,8 +61,8 @@ export async function unarchiveBoardAction(boardId: string) {
     .update(boards)
     .set({ archivedAt: null, updatedAt: new Date() })
     .where(eq(boards.id, boardId));
-  revalidatePath("/board");
-  revalidatePath(`/board/${boardId}`);
+  revalidatePath("/boards");
+  revalidatePath(`/boards/${boardId}`);
 }
 
 export async function trashBoardAction(boardId: string) {
@@ -72,8 +72,8 @@ export async function trashBoardAction(boardId: string) {
     .update(boards)
     .set({ deletedAt: new Date(), updatedAt: new Date() })
     .where(eq(boards.id, boardId));
-  revalidatePath("/board");
-  redirect("/board");
+  revalidatePath("/boards");
+  redirect("/boards");
 }
 
 export async function restoreBoardAction(boardId: string) {
@@ -83,12 +83,12 @@ export async function restoreBoardAction(boardId: string) {
     .update(boards)
     .set({ deletedAt: null, archivedAt: null, updatedAt: new Date() })
     .where(eq(boards.id, boardId));
-  revalidatePath("/board");
+  revalidatePath("/boards");
 }
 
 export async function permanentDeleteBoardAction(boardId: string) {
   await requireUser();
   const db = getDb();
   await db.delete(boards).where(eq(boards.id, boardId));
-  revalidatePath("/board");
+  revalidatePath("/boards");
 }
