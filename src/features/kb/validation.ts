@@ -7,7 +7,8 @@ export const noteFormSchema = z.object({
   shortSummary: z.string().max(800).optional(),
   mediumSummary: z.string().max(4_000).optional(),
   deepSummary: z.string().max(20_000).optional(),
-  status: z.enum(["seed", "growing", "evergreen", "archived"]).default("seed")
+  status: z.enum(["seed", "growing", "evergreen", "archived"]).default("seed"),
+  topicId: z.string().optional()
 });
 
 export type NoteFormInput = z.infer<typeof noteFormSchema>;

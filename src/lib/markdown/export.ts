@@ -1,6 +1,7 @@
 import type { Note } from "@/lib/db/schema";
+import { replaceWikiLinks } from "./wiki-links";
 
-export function noteToPortableMarkdown(note: Note) {
+export function noteToPortableMarkdown(note: Note, hrefs: Map<string, string> = new Map()) {
   const frontmatter = [
     "---",
     `title: ${JSON.stringify(note.title)}`,
@@ -15,7 +16,7 @@ export function noteToPortableMarkdown(note: Note) {
     "---"
   ].join("\n");
 
-  return `${frontmatter}\n\n${note.markdown}`;
+  return `${frontmatter}\n\n${replaceWikiLinks(note.markdown, hrefs)}`;
 }
 
 export function noteToPortableJson(note: Note) {

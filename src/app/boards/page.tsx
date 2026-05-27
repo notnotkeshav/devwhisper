@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Camera, LayoutDashboard } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 import { PageHeader } from "@/components/page/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { listBoards, listArchivedBoards, listTrashedBoards } from "@/features/board/repository";
@@ -38,7 +38,7 @@ export default async function BoardsPage({
     <>
       <PageHeader
         title="Boards"
-        description="Excalidraw scenes for architecture diagrams linked to notes and blogs."
+        description="Visual diagrams for architecture, system design, and concept mapping — linked to notes and blogs."
         actions={<NewBoardButton />}
       />
 
@@ -52,7 +52,7 @@ export default async function BoardsPage({
         ).map((tab) => (
           <Link
             key={tab.id}
-            href={tab.id === "active" ? "/board" : `/board?view=${tab.id}`}
+            href={tab.id === "active" ? "/boards" : `/boards?view=${tab.id}`}
             className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
               view === tab.id
                 ? "bg-primary text-primary-foreground"
@@ -72,7 +72,7 @@ export default async function BoardsPage({
               className="flex flex-col rounded-lg border transition-colors hover:bg-muted/50"
             >
               {/* Snapshot preview */}
-              <Link href={`/board/${board.id}`} className="block">
+              <Link href={`/boards/${board.id}`} className="block">
                 {board.previewSvg ? (
                   <div className="relative h-36 overflow-hidden rounded-t-lg bg-muted">
                     <Image
@@ -92,20 +92,19 @@ export default async function BoardsPage({
 
               <div className="flex flex-1 items-start justify-between gap-2 p-4">
                 <div className="min-w-0 flex-1">
-                  <Link href={`/board/${board.id}`} className="block">
+                  <Link href={`/boards/${board.id}`} className="block">
                     <h2 className="truncate text-sm font-semibold hover:text-primary">
                       {board.title}
                     </h2>
                   </Link>
                   <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                     {board.linkedNoteIds.length} notes · {board.linkedBlogIds.length} blogs
-                    {board.previewSvg && (
-                      <span className="flex items-center gap-0.5 text-emerald-400">
-                        <Camera className="size-3" aria-hidden />
-                        snapshot
-                      </span>
-                    )}
                   </p>
+                  {board.previewSvg && (
+                    <span className="mt-1 inline-block rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                      Preview saved
+                    </span>
+                  )}
                 </div>
                 {view === "bin" ? (
                   <BinControls

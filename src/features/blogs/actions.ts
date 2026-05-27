@@ -38,7 +38,8 @@ const blogFormSchema = z.object({
   slug: z.string().optional(),
   mdx: z.string().default(""),
   excerpt: z.string().default(""),
-  series: z.string().optional()
+  series: z.string().optional(),
+  topicId: z.string().optional()
 });
 
 export async function saveBlogAction(formData: FormData) {
@@ -48,7 +49,9 @@ export async function saveBlogAction(formData: FormData) {
     slug: formData.get("slug") || undefined,
     mdx: formData.get("mdx") || "",
     excerpt: formData.get("excerpt") || "",
-    series: formData.get("series") || undefined
+    series: formData.get("series") || undefined,
+    topicId:
+      formData.get("topicId") === "__none__" ? undefined : formData.get("topicId") || undefined
   });
 
   if (!parsed.success) {
@@ -71,6 +74,7 @@ export async function saveBlogAction(formData: FormData) {
     mdx: parsed.data.mdx,
     excerpt: parsed.data.excerpt,
     series: parsed.data.series ?? null,
+    topicId: parsed.data.topicId ?? null,
     readingTimeMinutes,
     updatedAt: new Date()
   };

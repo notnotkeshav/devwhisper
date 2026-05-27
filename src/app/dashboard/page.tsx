@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Brain, CalendarDays, Plus } from "lucide-react";
+import { BookOpen, CalendarDays, NotebookTabs, Plus } from "lucide-react";
 import { PageHeader } from "@/components/page/page-header";
 import { Button } from "@/components/ui/button";
-import { listNotes, listPinnedNotes, getRevisionQueue } from "@/features/kb/repository";
+import { listNotes, listPinnedNotes, countActiveNotes } from "@/features/kb/repository";
+import { listTopics } from "@/features/topics/repository";
 import { requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -13,20 +14,24 @@ const statusColor: Record<string, string> = {
   evergreen: "bg-teal-400/10 text-teal-400"
 };
 
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [recent, pinned, queue] = await Promise.all([
+  const [recent, pinned, topics, totalNotes] = await Promise.all([
     listNotes(user.id, 8),
     listPinnedNotes(user.id),
-    getRevisionQueue(user.id)
+    listTopics(user.id),
+    countActiveNotes(user.id)
   ]);
 
   return (
-    <>
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Dashboard"
-        eyebrow="Memory OS"
-        description="A compressed view of what you are learning, what is decaying, and what needs reconstruction."
+        description="Your personal learning system — capture, connect, and recall."
         actions={
           <Button asChild>
             <Link href="/kb/new">
@@ -44,25 +49,24 @@ export default async function DashboardPage() {
             <BookOpen className="size-3.5" aria-hidden />
             Active notes
           </div>
-          <p className="text-3xl font-semibold">{recent.length}</p>
+          <p className="text-3xl font-semibold">{totalNotes}</p>
         </div>
         <div className="rounded-lg border p-4">
           <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-            <Brain className="size-3.5" aria-hidden />
-            Due for revision
+            <NotebookTabs className="size-3.5" aria-hidden />
+            Topics
           </div>
-          <p className="text-3xl font-semibold">{queue.length}</p>
-          {queue.length > 0 && (
-            <Link href="/revise" className="mt-1 flex items-center gap-1 text-xs text-primary">
-              Start session
-              <ArrowRight className="size-3" aria-hidden />
+          <p className="text-3xl font-semibold">{topics.length}</p>
+          {topics.length > 0 && (
+            <Link href="/topics" className="mt-1 flex items-center gap-1 text-xs text-primary">
+              View topics →
             </Link>
           )}
         </div>
         <div className="rounded-lg border p-4">
           <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
             <CalendarDays className="size-3.5" aria-hidden />
-            Pinned concepts
+            Pinned notes
           </div>
           <p className="text-3xl font-semibold">{pinned.length}</p>
         </div>
@@ -96,7 +100,7 @@ export default async function DashboardPage() {
                   <span
                     className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${statusColor[note.status] ?? "bg-muted text-muted-foreground"}`}
                   >
-                    {note.status}
+                    {capitalize(note.status)}
                   </span>
                 </Link>
               ))}
@@ -111,47 +115,48 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        {/* Revision queue preview */}
+        {/* Pinned notes */}
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Revision queue</h2>
-            <Link href="/revise" className="text-xs text-muted-foreground hover:text-foreground">
-              Start revising
+            <h2 className="text-sm font-semibold">Pinned notes</h2>
+            <Link href="/kb" className="text-xs text-muted-foreground hover:text-foreground">
+              View all
             </Link>
           </div>
-          {queue.length ? (
+          {pinned.length ? (
             <div className="grid gap-2">
-              {queue.slice(0, 6).map((note) => (
+              {pinned.map((note) => (
                 <Link
                   key={note.id}
                   href={`/kb/${note.slug}`}
-                  className="flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                  className="flex items-start justify-between gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
                 >
-                  <div className="min-w-0 flex-1 truncate text-sm font-medium">{note.title}</div>
-                  <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-                    <span
-                      className="block h-1.5 w-12 overflow-hidden rounded-full bg-muted"
-                      title={`Forgetting: ${(note.forgettingScore * 100).toFixed(0)}%`}
-                    >
-                      <span
-                        className="block h-full rounded-full bg-amber-400"
-                        style={{
-                          width: `${Math.min(100, note.forgettingScore * 100).toFixed(0)}%`
-                        }}
-                      />
-                    </span>
-                    <span>{(note.forgettingScore * 100).toFixed(0)}%</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{note.title}</div>
+                    {note.shortSummary && (
+                      <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                        {note.shortSummary}
+                      </div>
+                    )}
                   </div>
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${statusColor[note.status] ?? "bg-muted text-muted-foreground"}`}
+                  >
+                    {capitalize(note.status)}
+                  </span>
                 </Link>
               ))}
             </div>
           ) : (
             <div className="rounded-lg border border-dashed p-6 text-center">
-              <p className="text-sm text-muted-foreground">Queue is clear — nothing due.</p>
+              <p className="text-sm text-muted-foreground">No pinned notes yet.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Pin important notes from the note view to surface them here.
+              </p>
             </div>
           )}
         </section>
       </div>
-    </>
+    </div>
   );
 }

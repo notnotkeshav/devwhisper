@@ -46,7 +46,7 @@ export function buildGraph(input: {
       id: board.id,
       type: "board" as const,
       label: board.title,
-      href: `/board/${board.id}`
+      href: `/boards/${board.id}`
     }))
   ];
 

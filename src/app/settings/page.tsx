@@ -74,7 +74,7 @@ const modules = [
   {
     icon: LayoutDashboard,
     title: "Boards",
-    href: "/board",
+    href: "/boards",
     color: "text-amber-400",
     step: "5",
     description:
